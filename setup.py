@@ -4,7 +4,6 @@ setup_kwds = {}
 if sys.version_info > (3,):
     from setuptools import setup
     setup_kwds["test_suite"] = "djsupervisor.tests"
-    setup_kwds["use_2to3"] = True
 else:
     try:
         from setuptools import setup
