@@ -10,20 +10,15 @@ and producing a final config file to control supervisord/supervisorctl.
 
 """
 
-import sys
-import os
 import hashlib
-
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
-
-from ConfigParser import RawConfigParser, NoSectionError, NoOptionError
+import os
+import sys
+from configparser import NoOptionError, NoSectionError, RawConfigParser
+from importlib import import_module
+from io import StringIO
 
 from django import template
 from django.conf import settings
-from importlib import import_module
 
 from djsupervisor.templatetags import djsupervisor_tags
 
@@ -97,8 +92,8 @@ def get_merged_config(**options):
     #  talk to supervisord.  It's passworded based on secret key.
     #  If they have configured a unix socket then use that, otherwise
     #  use an inet server on localhost at fixed-but-randomish port.
-    username = hashlib.md5(settings.SECRET_KEY).hexdigest()[:7]
-    password = hashlib.md5(username).hexdigest()
+    username = hashlib.md5(settings.SECRET_KEY.encode()).hexdigest()[:7]
+    password = hashlib.md5(username.encode()).hexdigest()
     if cfg.has_section("unix_http_server"):
         set_if_missing(cfg,"unix_http_server","username",username)
         set_if_missing(cfg,"unix_http_server","password",password)
@@ -107,7 +102,7 @@ def get_merged_config(**options):
         #  This picks a "random" port in the 9000 range to listen on.
         #  It's derived from the secret key, so it's stable for a given
         #  project but multiple projects are unlikely to collide.
-        port = int(hashlib.md5(password).hexdigest()[:3],16) % 1000
+        port = int(hashlib.md5(password.encode()).hexdigest()[:3],16) % 1000
         addr = "127.0.0.1:9%03d" % (port,)
         set_if_missing(cfg,"inet_http_server","port",addr)
         set_if_missing(cfg,"inet_http_server","username",username)
@@ -148,7 +143,7 @@ def render_config(data,ctx):
     data = "{% load djsupervisor_tags %}" + data
     t = template.Template(data)
     c = template.Context(ctx)
-    return t.render(c).encode("ascii")
+    return t.render(c)
 
 
 def get_config_from_options(**options):
@@ -234,7 +229,7 @@ def rerender_options(options):
     key in the options dictionary.
     """
     args = []
-    for name,value in options.iteritems():
+    for name,value in options.items():
         name = name.replace("_","-")
         if value is None:
             pass
