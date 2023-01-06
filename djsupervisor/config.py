@@ -48,7 +48,7 @@ def get_merged_config(**options):
     #  This is mostly useful information about the project and environment.
     ctx = {
         "PROJECT_DIR": project_dir,
-        "PYTHON": os.path.realpath(os.path.abspath(sys.executable)),
+        "PYTHON": os.path.abspath(sys.executable),
         "SUPERVISOR_OPTIONS": rerender_options(options),
         "settings": settings,
         "environ": os.environ,
