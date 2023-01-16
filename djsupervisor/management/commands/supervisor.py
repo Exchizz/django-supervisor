@@ -22,30 +22,26 @@ The "supervisor" command suports several modes of operation:
 
 """
 
-from __future__ import absolute_import, with_statement
 
-import sys
 import os
+import sys
 import time
-from textwrap import dedent
 import traceback
-from ConfigParser import RawConfigParser, NoOptionError
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
+from configparser import NoOptionError, RawConfigParser
+from io import StringIO
+from textwrap import dedent
+from typing import Optional
 
-from supervisor import supervisord, supervisorctl
-
-from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
-
+from django.core.management.base import BaseCommand, CommandError
 from djsupervisor.config import get_merged_config
 from djsupervisor.events import CallbackModifiedHandler
 
+from supervisor import supervisorctl, supervisord
+
 AUTORELOAD_PATTERNS = getattr(settings, "SUPERVISOR_AUTORELOAD_PATTERNS",
                               ['*.py'])
-AUTORELOAD_IGNORE = getattr(settings, "SUPERVISOR_AUTORELOAD_IGNORE_PATTERNS", 
+AUTORELOAD_IGNORE = getattr(settings, "SUPERVISOR_AUTORELOAD_IGNORE_PATTERNS",
                             [".*", "#*", "*~"])
 
 class Command(BaseCommand):
@@ -186,7 +182,7 @@ class Command(BaseCommand):
         #  Due to some very nice engineering on behalf of supervisord authors,
         #  you can pass it a StringIO instance for the "-c" command-line
         #  option.  Saves us having to write the config to a tempfile.
-        cfg_file = OnDemandStringIO(get_merged_config, **options)
+        cfg_file = OnDemandStringIO(get_merged_config(**options))
         #  With no arguments, we launch the processes under supervisord.
         if not args:
             return supervisord.main(("-c",cfg_file))
@@ -216,7 +212,7 @@ class Command(BaseCommand):
         """Command 'supervisor getconfig' prints merged config to stdout."""
         if args:
             raise CommandError("supervisor getconfig takes no arguments")
-        print cfg_file.read()
+        print(cfg_file.read())
         return 0
 
     def _handle_autoreload(self,cfg_file,*args,**options):
@@ -256,7 +252,7 @@ class Command(BaseCommand):
         # This will avoid errors with e.g. too many inotify watches.
         from watchdog.observers import Observer
         from watchdog.observers.polling import PollingObserver
-        
+
         observer = None
         for ObserverCls in (Observer, PollingObserver):
             observer = ObserverCls()
@@ -265,15 +261,15 @@ class Command(BaseCommand):
                     observer.schedule(handler, live_dir, True)
                 break
             except Exception:
-                print>>sys.stderr, "COULD NOT WATCH FILESYSTEM USING"
-                print>>sys.stderr, "OBSERVER CLASS: ", ObserverCls
+                print("COULD NOT WATCH FILESYSTEM USING", file=sys.stderr)
+                print("OBSERVER CLASS: ", ObserverCls, file=sys.stderr)
                 traceback.print_exc()
                 observer.start()
                 observer.stop()
 
         # Fail out if none of the observers worked.
         if observer is None:
-            print>>sys.stderr, "COULD NOT WATCH FILESYSTEM"
+            print("COULD NOT WATCH FILESYSTEM", file=sys.stderr)
             return 1
 
         # Poll if we have an observer.
@@ -316,7 +312,7 @@ class Command(BaseCommand):
         directories on sys.path that are actively in use.
         """
         live_dirs = []
-        for mod in sys.modules.values():
+        for mod in list(sys.modules.values()):
             #  Get the directory containing that module.
             #  This is deliberately casting a wide net.
             try:
@@ -341,8 +337,7 @@ class Command(BaseCommand):
                 live_dirs.append(dirnm)
         return live_dirs
 
-
-class OnDemandStringIO(object):
+class OnDemandStringIO(StringIO):
     """StringIO standin that demand-loads its contents and resets on EOF.
 
     This class is a little bit of a hack to make supervisord reloading work
@@ -351,27 +346,18 @@ class OnDemandStringIO(object):
     the supervisord process then SIGHUPs and tries to read the config again,
     it will be re-created and available for updates.
     """
+    def read(self, __size: Optional[int] = -1) -> str:
+        data = super().read(__size)
 
-    def __init__(self, callback, *args, **kwds):
-        self._fp = None
-        self.callback = callback
-        self.args = args
-        self.kwds = kwds
-
-    @property
-    def fp(self):
-        if self._fp is None:
-            self._fp = StringIO(self.callback(*self.args, **self.kwds))
-        return self._fp
-
-    def read(self, *args, **kwds):
-        data = self.fp.read(*args, **kwds)
         if not data:
-            self._fp = None
+            self.seek(0)
+
         return data
 
-    def readline(self, *args, **kwds):
-        line = self.fp.readline(*args, **kwds)
+    def readline(self, __size: Optional[int] = -1) -> str:
+        line = super().readline(__size)
+
         if not line:
-            self._fp = None
+            self.seek(0)
+
         return line

@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "django-supervisor"
+version = "0.4.0"
+description = "easy integration between djangocl and supervisord"
+homepage = "https://github.com/rfk/django-supervisor"
+authors = ["Ryan Kelly <ryan@rfk.id.au>"]
+license = "MIT"
+readme = "README.rst"
+keywords = ["django", "supervisord", "process"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+]
+packages = [{include = "djsupervisor"}]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+supervisor = "^4.0.0"
+watchdog = "^2.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
